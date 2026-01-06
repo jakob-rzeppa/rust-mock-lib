@@ -1,82 +1,12 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, FnArg, ItemFn, Type, ItemUse};
-use syn::punctuated::Punctuated;
-use syn::token::Comma;
 
-/// Creates a type representation for function parameters.
-///
-/// Converts a list of function parameters into a single type that can be used
-/// as a generic parameter for the mock infrastructure.
-///
-/// # Returns
-///
-/// - For 0 parameters: `()`
-/// - For 1 parameter: The parameter type itself
-/// - For 2+ parameters: A tuple of all parameter types
-///
-/// # Examples
-///
-/// - `fn foo()` → `()`
-/// - `fn foo(x: i32)` → `i32`
-/// - `fn foo(x: i32, y: String)` → `(i32, String)`
-fn create_param_type(fn_inputs: &Punctuated<FnArg, Comma>) -> Type {
-    let param_types: Vec<_> = fn_inputs
-        .iter()
-        .filter_map(|arg| match arg {
-            syn::FnArg::Typed(pat_type) => Some(&pat_type.ty),
-            syn::FnArg::Receiver(_) => panic!(
-                "mock_function does not support methods with 'self' parameters. \
-                 Only standalone functions can be mocked."
-            ),
-        })
-        .collect();
+mod param_utils;
+mod use_tree_processor;
 
-    // Single parameter doesn't need tuple wrapping
-    if param_types.len() == 1 {
-        param_types[0].as_ref().clone()
-    } else {
-        // Multiple parameters or no parameters use tuple syntax
-        syn::parse2(quote! { (#(#param_types),*) }).unwrap()
-    }
-}
-
-/// Creates a tuple expression from function parameter names.
-///
-/// Converts parameter patterns into a tuple that can be passed to the mock
-/// implementation for call tracking and verification.
-///
-/// # Returns
-///
-/// - For 0 parameters: `()`
-/// - For 1 parameter: The parameter name itself (not wrapped in tuple)
-/// - For 2+ parameters: A tuple of all parameter names
-///
-/// # Examples
-///
-/// - `fn foo()` → `()`
-/// - `fn foo(x: i32)` → `x`
-/// - `fn foo(x: i32, y: String)` → `(x, y)`
-fn create_tuple_from_param_names(fn_inputs: &Punctuated<FnArg, Comma>) -> proc_macro2::TokenStream {
-    let param_names: Vec<_> = fn_inputs
-        .iter()
-        .filter_map(|arg| match arg {
-            syn::FnArg::Typed(pat_type) => Some(&pat_type.pat),
-            syn::FnArg::Receiver(_) => panic!(
-                "mock_function does not support methods with 'self' parameters"
-            ),
-        })
-        .collect();
-
-    if param_names.is_empty() {
-        quote! { () }
-    } else if param_names.len() == 1 {
-        let name = &param_names[0];
-        quote! { #name }
-    } else {
-        quote! { (#(#param_names),*) }
-    }
-}
+use param_utils::{create_param_type, create_tuple_from_param_names};
+use use_tree_processor::process_use_tree;
 
 /// Attribute macro that generates a mockable version of a function.
 ///
@@ -219,69 +149,6 @@ pub fn mock_function(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
-}
-
-/// Recursively processes a use tree to extract function names and generate mock names.
-///
-/// This function traverses the syntax tree of a use statement, collecting the module path in the `base_path` vector
-/// and extracting function names. For each function, it generates a corresponding mock
-/// function name by appending `_mock`.
-///
-/// # Arguments
-///
-/// * `tree` - The use tree node to process
-/// * `base_path` - Accumulator for the module path segments (e.g., ["crate", "module"])
-///
-/// # Returns
-///
-/// A vector of tuples where each tuple contains:
-/// * Original function identifier (e.g., `fetch_user`)
-/// * Generated mock function identifier (e.g., `fetch_user_mock`)
-///
-/// # Examples
-///
-/// For `use module::function;`:
-/// - Returns: `[(function, function_mock)]`
-/// - base_path after: `["module"]`
-///
-/// For `use module::{fn1, fn2};`:
-/// - Returns: `[(fn1, fn1_mock), (fn2, fn2_mock)]`
-/// - base_path after: `["module"]`
-fn process_use_tree(
-    tree: &syn::UseTree,
-    base_path: &mut Vec<syn::Ident>,
-) -> Vec<(syn::Ident, syn::Ident)> {
-    match tree {
-        // Handle path segments: module::submodule::...
-        syn::UseTree::Path(path) => {
-            base_path.push(path.ident.clone());
-            process_use_tree(&path.tree, base_path)
-        }
-        // Handle individual function name
-        syn::UseTree::Name(name) => {
-            let fn_name = name.ident.clone();
-            let mock_fn_name = syn::Ident::new(
-                &format!("{}_mock", fn_name),
-                fn_name.span()
-            );
-            vec![(fn_name, mock_fn_name)]
-        }
-        // Handle grouped imports: {fn1, fn2, fn3}
-        syn::UseTree::Group(group) => {
-            let mut function_mappings = Vec::new();
-            for item in &group.items {
-                // Clone base_path for each item to handle nested groups correctly
-                let mut item_path = base_path.clone();
-                function_mappings.extend(process_use_tree(item, &mut item_path));
-            }
-            function_mappings
-        }
-        // Glob imports and renamed imports are not supported
-        _ => panic!(
-            "use_function_mock only supports simple path and grouped imports. \
-             Glob imports (*) and renamed imports (as) are not supported."
-        ),
-    }
 }
 
 /// Attribute macro that conditionally imports functions and their mock versions.
