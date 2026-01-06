@@ -1,12 +1,12 @@
-use mock_lib::derive::function_mock;
+use mock_lib::derive::{mock_function};
 
 // Fetches user data from a database
-#[function_mock]
+#[mock_function]
 pub fn fetch_user(id: u32) -> Result<String, String> {
     Ok(format!("User_{}", id))
 }
 
-#[function_mock]
+#[mock_function]
 pub fn send_email(user: String, body: String) -> Result<(), String> {
     println!("Send email to {}: {}", user, body);
 

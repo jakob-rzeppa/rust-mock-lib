@@ -52,7 +52,7 @@ fn create_tuple_from_param_names(fn_inputs: &Punctuated<FnArg, Comma>) -> proc_m
 }
 
 #[proc_macro_attribute]
-pub fn function_mock(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn mock_function(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
 
     // Extract function details
