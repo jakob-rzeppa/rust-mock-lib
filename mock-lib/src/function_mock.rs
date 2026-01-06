@@ -66,25 +66,3 @@ where
         assert!(was_called_with, "Expected {} mock to be called with {:?}", self.name, params);
     }
 }
-
-// Macro to call mocks without wrapping parameters in tuples
-#[macro_export]
-macro_rules! call {
-    ($mock:expr) => {
-        $mock.call(())
-    };
-    ($mock:expr, $($param:expr),+) => {
-        $mock.call(($($param,)+))
-    };
-}
-
-// Macro to assert_with without wrapping parameters in tuples
-#[macro_export]
-macro_rules! assert_with {
-    ($mock:expr) => {
-        $mock.assert_with(())
-    };
-    ($mock:expr, $($param:expr),+) => {
-        $mock.assert_with(($($param,)+))
-    };
-}
