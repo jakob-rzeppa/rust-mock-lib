@@ -31,6 +31,26 @@ fn create_param_type(fn_inputs: &Punctuated<FnArg, Comma>) -> Type {
     }
 }
 
+fn create_tuple_from_param_names(fn_inputs: &Punctuated<FnArg, Comma>) -> proc_macro2::TokenStream {
+    // Extract parameter names
+    let param_names: Vec<_> = fn_inputs.iter()
+        .filter_map(|arg| match arg {
+            syn::FnArg::Typed(pat_type) => Some(&pat_type.pat),
+            _ => panic!("self parameters not supported"),
+        })
+        .collect();
+
+    // Create tuple from parameter names
+    if param_names.is_empty() {
+        quote! { () }
+    } else if param_names.len() == 1 {
+        let name = &param_names[0];
+        quote! { #name }
+    } else {
+        quote! { (#(#param_names),*) }
+    }
+}
+
 #[proc_macro_attribute]
 pub fn function_mock(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
@@ -42,22 +62,8 @@ pub fn function_mock(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let fn_output = input.sig.output.clone();
     let fn_block = input.block.clone();
 
-    // Extract parameter types and names
-    let param_types: Vec<_> = input.sig.inputs.iter()
-        .filter_map(|arg| match arg {
-            syn::FnArg::Typed(pat_type) => Some(&pat_type.ty),
-            _ => panic!("self parameters not supported"),
-        })
-        .collect();
-    
-    let param_names: Vec<_> = input.sig.inputs.iter()
-        .filter_map(|arg| match arg {
-            syn::FnArg::Typed(pat_type) => Some(&pat_type.pat),
-            _ => panic!("self parameters not supported"),
-        })
-        .collect();
-
-    let params_type = create_param_type(&input.sig.inputs);
+    let params_type = create_param_type(&fn_inputs);
+    let params_to_tuple = create_tuple_from_param_names(&fn_inputs);
     
     // Extract return type from ReturnType
     let return_type: Type = match &input.sig.output {
@@ -65,74 +71,57 @@ pub fn function_mock(_attr: TokenStream, item: TokenStream) -> TokenStream {
         syn::ReturnType::Type(_, ty) => (**ty).clone(),
     };
 
-    // Create function pointer type
-    let function_pointer_declaration = quote! {
-        fn(#(#param_types),*) #fn_output
-    };
-    
-    // Generate the call arguments - single param vs tuple
-    let call_args = if param_names.len() == 1 {
-        quote! { #(#param_names)* }
-    } else {
-        quote! { (#(#param_names),*) }
-    };
-
-    // The name of the instance of the FunctionMock struct
-    let mock_name = format!("{}_MOCK", fn_name.to_string().to_uppercase());
-    let mock_name = syn::Ident::new(&mock_name, fn_name.span());
-
-    let params_type_name = format!("{}Params", to_pascal_case(&fn_name.to_string()));
-    let params_type_name = syn::Ident::new(&params_type_name, fn_name.span());
-    
-    let return_type_name = format!("{}Result", to_pascal_case(&fn_name.to_string()));
-    let return_type_name = syn::Ident::new(&return_type_name, fn_name.span());
-    
-    let function_type_name = format!("{}Function", to_pascal_case(&fn_name.to_string()));
-    let function_type_name = syn::Ident::new(&function_type_name, fn_name.span());
-
     // Generate both the original function and the mock module
     let expanded = quote! {
         #fn_visibility fn #fn_name(#fn_inputs) #fn_output #fn_block
 
-        #[cfg(test)]
+        // #[cfg(test)]
         pub(crate) mod mock {
-            use std::cell::RefCell;
-            use mock_lib::function_mock::FunctionMock;
-
-            type #function_type_name = #function_pointer_declaration;
-            type #params_type_name = #params_type;
-            type #return_type_name = #return_type;
-
-            thread_local! {
-                static #mock_name: RefCell<FunctionMock<
-                    #function_type_name,
-                    #params_type_name,
-                    #return_type_name
-                >> = RefCell::new(FunctionMock::new(stringify!(#fn_name)));
-            }
 
             pub fn #fn_name(#fn_inputs) #fn_output {
-                #mock_name.with(|mock| {
-                    let mut mock = mock.borrow_mut();
-                    mock.call(#call_args)
-                })
+                #fn_name::call(#params_to_tuple)
             }
 
             pub(crate) mod #fn_name {
-                pub(crate) fn mock_implementation(new_f: super::#function_type_name) {
-                    super::#mock_name.with(|mock| { mock.borrow_mut().mock_implementation(new_f) })
+                type Params = #params_type;
+                type Return = #return_type;
+                const FUNCTION_NAME: &str = "#fn_name";
+
+                thread_local! {
+                    pub(super) static MOCK: std::cell::RefCell<mock_lib::function_mock::FunctionMock<
+                        Params,
+                        Return,
+                    >> = std::cell::RefCell::new(mock_lib::function_mock::FunctionMock::new(FUNCTION_NAME));
+                }
+
+                pub(crate) fn call(params: Params) -> Return {
+                    MOCK.with(|mock| {
+                        mock.borrow_mut().call(params)
+                    })
+                }
+
+                pub(crate) fn mock_implementation(new_f: fn(Params) -> Return) {
+                    MOCK.with(|mock| {
+                        mock.borrow_mut().mock_implementation(new_f)
+                    })
                 }
 
                 pub(crate) fn clear_mock() {
-                    super::#mock_name.with(|mock|{ mock.borrow_mut().clear_mock() })
+                    MOCK.with(|mock|{
+                        mock.borrow_mut().clear_mock()
+                    })
                 }
 
                 pub(crate) fn assert_times(expected_num_of_calls: u32) {
-                    super::#mock_name.with(|mock| { mock.borrow().assert_times(expected_num_of_calls) })
+                    MOCK.with(|mock| {
+                        mock.borrow().assert_times(expected_num_of_calls)
+                    })
                 }
 
-                pub(crate) fn assert_with(params: super::#params_type_name) {
-                    super::#mock_name.with(|mock| { mock.borrow().assert_with(&params) })
+                pub(crate) fn assert_with(params: Params) {
+                    MOCK.with(|mock| {
+                        mock.borrow().assert_with(params)
+                    })
                 }
             }
         }
