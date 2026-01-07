@@ -96,3 +96,180 @@ where
         self.implementation.expect(format!("{} fake not initialized", self.name).as_str())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Helper fake functions for testing
+    fn add_fake_implementation(a: i32, b: i32) -> i32 {
+        a + b
+    }
+
+    fn multiply_fake_implementation(a: i32, b: i32) -> i32 {
+        a * b
+    }
+
+    fn string_concat_fake_implementation(a: String, b: String) -> String {
+        format!("{}{}", a, b)
+    }
+
+    fn sum_fake_implementation(name: &[u32]) -> u32 {
+        name.iter().sum()
+    }
+
+    #[test]
+    fn test_new_creates_fake_with_correct_name() {
+        let fake: FunctionFake<fn(i32, i32) -> i32> = FunctionFake::new("test_function");
+        assert_eq!(fake.name, "test_function");
+        assert!(fake.implementation.is_none());
+    }
+
+    #[test]
+    fn test_fake_implementation_sets_function() {
+        let mut fake: FunctionFake<fn(i32, i32) -> i32> = FunctionFake::new("add");
+        fake.fake_implementation(add_fake_implementation);
+        assert!(fake.implementation.is_some());
+    }
+
+    #[test]
+    fn test_get_implementation_returns_function() {
+        let mut fake: FunctionFake<fn(i32, i32) -> i32> = FunctionFake::new("add");
+        fake.fake_implementation(add_fake_implementation);
+        
+        let implementation = fake.get_implementation();
+        let result = implementation(5, 3);
+        assert_eq!(result, 8);
+    }
+
+    #[test]
+    #[should_panic(expected = "add fake not initialized")]
+    fn test_get_implementation_panics_when_not_initialized() {
+        let fake: FunctionFake<fn(i32, i32) -> i32> = FunctionFake::new("add");
+        fake.get_implementation();
+    }
+
+    #[test]
+    fn test_clear_fake_resets_implementation() {
+        let mut fake: FunctionFake<fn(i32, i32) -> i32> = FunctionFake::new("add");
+        fake.fake_implementation(add_fake_implementation);
+        
+        assert!(fake.implementation.is_some());
+        
+        fake.clear_fake();
+        
+        assert!(fake.implementation.is_none());
+    }
+
+    #[test]
+    fn test_fake_can_be_replaced() {
+        let mut fake: FunctionFake<fn(i32, i32) -> i32> = FunctionFake::new("math");
+        fake.fake_implementation(add_fake_implementation);
+        
+        let implementation1 = fake.get_implementation();
+        let result1 = implementation1(5, 3);
+        assert_eq!(result1, 8);
+        
+        fake.fake_implementation(multiply_fake_implementation);
+        let implementation2 = fake.get_implementation();
+        let result2 = implementation2(5, 3);
+        assert_eq!(result2, 15);
+    }
+
+    #[test]
+    fn test_with_string_parameters() {
+        let mut fake: FunctionFake<fn(String, String) -> String> = FunctionFake::new("concat");
+        fake.fake_implementation(string_concat_fake_implementation);
+        
+        let implementation = fake.get_implementation();
+        let result = implementation("Hello".to_string(), "World".to_string());
+        assert_eq!(result, "HelloWorld");
+    }
+
+    #[test]
+    fn test_with_reference_parameter() {
+        let mut fake: FunctionFake<fn(&[u32]) -> u32> = FunctionFake::new("sum");
+        fake.fake_implementation(sum_fake_implementation);
+
+        let vec = vec![1, 2, 3];
+        
+        let implementation = fake.get_implementation();
+        let result = implementation(vec.as_slice());
+        assert_eq!(result, 6);
+    }
+
+    #[test]
+    fn test_with_unit_return_type() {
+        fn void_fake(_x: i32) -> () {
+            // Do nothing
+        }
+        
+        let mut fake: FunctionFake<fn(i32) -> ()> = FunctionFake::new("void_fn");
+        fake.fake_implementation(void_fake);
+        
+        let implementation = fake.get_implementation();
+        implementation(42); // Should not panic
+    }
+
+    #[test]
+    fn test_with_result_return_type() {
+        fn divide_fake(a: i32, b: i32) -> Result<i32, String> {
+            if b == 0 {
+                Err("Division by zero".to_string())
+            } else {
+                Ok(a / b)
+            }
+        }
+        
+        let mut fake: FunctionFake<fn(i32, i32) -> Result<i32, String>> = FunctionFake::new("divide");
+        fake.fake_implementation(divide_fake);
+        
+        let implementation = fake.get_implementation();
+        
+        let result1 = implementation(10, 2);
+        assert_eq!(result1, Ok(5));
+        
+        let result2 = implementation(10, 0);
+        assert_eq!(result2, Err("Division by zero".to_string()));
+    }
+
+    #[test]
+    fn test_with_option_return_type() {
+        fn safe_divide_fake(a: i32, b: i32) -> Option<i32> {
+            if b == 0 {
+                None
+            } else {
+                Some(a / b)
+            }
+        }
+        
+        let mut fake: FunctionFake<fn(i32, i32) -> Option<i32>> = FunctionFake::new("safe_divide");
+        fake.fake_implementation(safe_divide_fake);
+        
+        let implementation = fake.get_implementation();
+        
+        let result1 = implementation(10, 2);
+        assert_eq!(result1, Some(5));
+        
+        let result2 = implementation(10, 0);
+        assert_eq!(result2, None);
+    }
+
+    #[test]
+    fn test_multiple_get_implementation_calls() {
+        let mut fake: FunctionFake<fn(i32, i32) -> i32> = FunctionFake::new("add");
+        fake.fake_implementation(add_fake_implementation);
+        
+        let impl1 = fake.get_implementation();
+        let impl2 = fake.get_implementation();
+        
+        assert_eq!(impl1(5, 3), 8);
+        assert_eq!(impl2(10, 20), 30);
+    }
+
+    #[test]
+    fn test_function_name_preserved() {
+        let fake: FunctionFake<fn(i32) -> i32> = FunctionFake::new("my_custom_function");
+        assert_eq!(fake.name, "my_custom_function");
+    }
+}
