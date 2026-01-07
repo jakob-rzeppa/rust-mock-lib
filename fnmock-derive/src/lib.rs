@@ -331,7 +331,7 @@ pub fn fake_function(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn use_function_fake(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as syn::ItemUse);
 
-    match process_use_statement(input, "_mock") {
+    match process_use_statement(input, "_fake") {
         Ok(expanded) => TokenStream::from(expanded),
         Err(e) => e.to_compile_error().into(),
     }
