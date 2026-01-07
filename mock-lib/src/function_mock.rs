@@ -90,10 +90,6 @@ where
 
     // --- Mocking ---
 
-    pub fn get_implementation(&self) -> &Option<fn(Params) -> Result> {
-        &self.implementation
-    }
-
     pub fn mock_implementation(&mut self, new_f: fn(Params) -> Result) {
         self.implementation = Some(new_f);
     }
