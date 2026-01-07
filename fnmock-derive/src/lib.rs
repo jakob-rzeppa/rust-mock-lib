@@ -4,14 +4,14 @@ use syn::{parse_macro_input};
 mod param_utils;
 mod use_tree_processor;
 mod use_statement_processor;
+mod inline_processor;
 mod function_mock;
 mod function_fake;
 mod return_utils;
 
 use crate::function_mock::{process_mock_function};
-use crate::function_mock::use_mock_inline::process_use_mock_inline;
 use crate::function_fake::{process_fake_function};
-use crate::function_fake::use_fake_inline::process_use_fake_inline;
+use crate::inline_processor::process_inline;
 use crate::use_statement_processor::process_use_statement;
 
 /// Attribute macro that generates a mockable version of a function.
@@ -210,7 +210,7 @@ pub fn use_function_mock(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn use_mock_inline(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as syn::Expr);
 
-    match process_use_mock_inline(&input) {
+    match process_inline(input, "_mock", "use_mock_inline") {
         Ok(expanded) => TokenStream::from(expanded),
         Err(e) => e.to_compile_error().into(),
     }
@@ -406,7 +406,7 @@ pub fn use_function_fake(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn use_fake_inline(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as syn::Expr);
 
-    match process_use_fake_inline(&input) {
+    match process_inline(input, "_fake", "use_fake_inline") {
         Ok(expanded) => TokenStream::from(expanded),
         Err(e) => e.to_compile_error().into(),
     }

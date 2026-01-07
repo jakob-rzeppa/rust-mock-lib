@@ -5,7 +5,6 @@ use crate::function_fake::validate_function::validate_function_fakeable;
 use crate::param_utils::create_param_type;
 use crate::return_utils::extract_return_type;
 
-pub(crate) mod use_fake_inline;
 mod create_fake_implementation;
 mod validate_function;
 

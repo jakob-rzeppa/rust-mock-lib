@@ -5,7 +5,6 @@ use crate::function_mock::validate_function::validate_function_mockable;
 use crate::param_utils::{create_param_type, create_tuple_from_param_names};
 use crate::return_utils::extract_return_type;
 
-pub(crate) mod use_mock_inline;
 mod create_mock_implementation;
 mod validate_function;
 

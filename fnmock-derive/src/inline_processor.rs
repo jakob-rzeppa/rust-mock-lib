@@ -2,14 +2,16 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Expr, Ident};
 
-/// Processes a function path expression and generates the conditional fake selection code.
+/// Processes a function path expression and generates the conditional selection code.
 ///
 /// Takes a function path and creates a block that conditionally evaluates to either
-/// the original function or the fake version based on the test configuration.
+/// the original function or the modified version (with custom suffix) based on the test configuration.
 ///
 /// # Arguments
 ///
 /// * `input` - The expression passed to the macro (should be a path expression)
+/// * `suffix` - The suffix to append to the function name (e.g., "_mock" or "_fake")
+/// * `macro_name` - The name of the macro for error messages (e.g., "use_mock_inline" or "use_fake_inline")
 ///
 /// # Returns
 ///
@@ -23,17 +25,21 @@ use syn::{Expr, Ident};
 ///     #[cfg(not(test))]
 ///     { original::path::function }
 ///     #[cfg(test)]
-///     { original::path::function_fake }
+///     { original::path::function_suffix }
 /// }
 /// ```
-pub(crate) fn process_use_fake_inline(input: &Expr) -> syn::Result<TokenStream2> {
+pub(crate) fn process_inline(
+    input: Expr,
+    suffix: &str,
+    macro_name: &str,
+) -> syn::Result<TokenStream2> {
     // Extract the function path
     let fn_path = match input {
         Expr::Path(path) => path,
         _ => {
             return Err(syn::Error::new_spanned(
                 input,
-                "use_fake_inline expects a function identifier or path"
+                format!("{} expects a function identifier or path", macro_name)
             ));
         }
     };
@@ -49,13 +55,13 @@ pub(crate) fn process_use_fake_inline(input: &Expr) -> syn::Result<TokenStream2>
         }
     };
 
-    // Create the fake function name
-    let fake_fn_name = Ident::new(&format!("{}_fake", fn_name), fn_name.span());
+    // Create the modified function name with suffix
+    let modified_fn_name = Ident::new(&format!("{}{}", fn_name, suffix), fn_name.span());
 
-    // Clone the path for the fake version and replace the last segment
-    let mut fake_path = fn_path.clone();
-    if let Some(last_segment) = fake_path.path.segments.last_mut() {
-        last_segment.ident = fake_fn_name;
+    // Clone the path for the modified version and replace the last segment
+    let mut modified_path = fn_path.clone();
+    if let Some(last_segment) = modified_path.path.segments.last_mut() {
+        last_segment.ident = modified_fn_name;
     }
 
     Ok(quote! {
@@ -63,7 +69,7 @@ pub(crate) fn process_use_fake_inline(input: &Expr) -> syn::Result<TokenStream2>
             #[cfg(not(test))]
             { #fn_path }
             #[cfg(test)]
-            { #fake_path }
+            { #modified_path }
         }
     })
 }
