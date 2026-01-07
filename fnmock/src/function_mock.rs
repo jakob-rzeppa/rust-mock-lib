@@ -132,3 +132,235 @@ where
         assert!(was_called_with, "Expected {} mock to be called with {:?}", self.name, params);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Helper mock function for testing
+    fn add_mock_implementation(params: (i32, i32)) -> i32 {
+        params.0 + params.1
+    }
+
+    fn multiply_mock_implementation(params: (i32, i32)) -> i32 {
+        params.0 * params.1
+    }
+
+    fn string_concat_mock_implementation(params: (String, String)) -> String {
+        format!("{}{}", params.0, params.1)
+    }
+
+    #[test]
+    fn test_new_creates_mock_with_correct_name() {
+        let mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("test_function");
+        assert_eq!(mock.name, "test_function");
+        assert!(mock.implementation.is_none());
+        assert!(mock.calls.is_empty());
+    }
+
+    #[test]
+    fn test_mock_implementation_sets_function() {
+        let mut mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("add");
+        mock.mock_implementation(add_mock_implementation);
+        assert!(mock.implementation.is_some());
+    }
+
+    #[test]
+    fn test_call_executes_mocked_function() {
+        let mut mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("add");
+        mock.mock_implementation(add_mock_implementation);
+        
+        let result = mock.call((5, 3));
+        assert_eq!(result, 8);
+    }
+
+    #[test]
+    #[should_panic(expected = "add mock not initialized")]
+    fn test_call_panics_when_not_initialized() {
+        let mut mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("add");
+        mock.call((5, 3));
+    }
+
+    #[test]
+    fn test_call_records_parameters() {
+        let mut mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("add");
+        mock.mock_implementation(add_mock_implementation);
+        
+        mock.call((5, 3));
+        mock.call((10, 20));
+        
+        assert_eq!(mock.calls.len(), 2);
+        assert_eq!(mock.calls[0], (5, 3));
+        assert_eq!(mock.calls[1], (10, 20));
+    }
+
+    #[test]
+    fn test_clear_mock_resets_state() {
+        let mut mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("add");
+        mock.mock_implementation(add_mock_implementation);
+        mock.call((5, 3));
+        mock.call((10, 20));
+
+        assert_eq!(mock.calls[0], (5, 3));
+        assert_eq!(mock.calls[1], (10, 20));
+        
+        mock.clear_mock();
+        
+        assert!(mock.implementation.is_none());
+        assert!(mock.calls.is_empty());
+    }
+
+    #[test]
+    fn test_mock_can_be_replaced() {
+        let mut mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("math");
+        mock.mock_implementation(add_mock_implementation);
+        
+        let result1 = mock.call((5, 3));
+        assert_eq!(result1, 8);
+        
+        mock.mock_implementation(multiply_mock_implementation);
+        let result2 = mock.call((5, 3));
+        assert_eq!(result2, 15);
+    }
+
+    #[test]
+    fn test_assert_times_passes_with_correct_count() {
+        let mut mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("add");
+        mock.mock_implementation(add_mock_implementation);
+        
+        mock.call((1, 2));
+        mock.call((3, 4));
+        mock.call((5, 6));
+        
+        mock.assert_times(3);
+    }
+
+    #[test]
+    #[should_panic(expected = "Expected add mock to be called 2 times, received 5")]
+    fn test_assert_times_fails_with_wrong_count() {
+        let mut mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("add");
+        mock.mock_implementation(add_mock_implementation);
+        
+        mock.call((1, 2));
+        mock.call((3, 4));
+        
+        mock.assert_times(5);
+    }
+
+    #[test]
+    fn test_assert_times_with_zero_calls() {
+        let mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("add");
+        mock.assert_times(0);
+    }
+
+    #[test]
+    fn test_assert_with_passes_when_called_with_params() {
+        let mut mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("add");
+        mock.mock_implementation(add_mock_implementation);
+        
+        mock.call((5, 3));
+        mock.call((10, 20));
+        
+        mock.assert_with((5, 3));
+        mock.assert_with((10, 20));
+    }
+
+    #[test]
+    #[should_panic(expected = "Expected add mock to be called with (7, 8)")]
+    fn test_assert_with_fails_when_not_called_with_params() {
+        let mut mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("add");
+        mock.mock_implementation(add_mock_implementation);
+        
+        mock.call((5, 3));
+        mock.assert_with((7, 8));
+    }
+
+    #[test]
+    fn test_assert_with_finds_params_among_multiple_calls() {
+        let mut mock: FunctionMock<(i32, i32), i32> = FunctionMock::new("add");
+        mock.mock_implementation(add_mock_implementation);
+        
+        mock.call((1, 1));
+        mock.call((2, 2));
+        mock.call((3, 3));
+        mock.call((4, 4));
+        
+        mock.assert_with((3, 3));
+    }
+
+    #[test]
+    fn test_with_string_parameters() {
+        let mut mock: FunctionMock<(String, String), String> = FunctionMock::new("concat");
+        mock.mock_implementation(string_concat_mock_implementation);
+        
+        let result = mock.call(("Hello".to_string(), "World".to_string()));
+        assert_eq!(result, "HelloWorld");
+        
+        mock.assert_times(1);
+        mock.assert_with(("Hello".to_string(), "World".to_string()));
+    }
+
+    #[test]
+    fn test_with_single_parameter() {
+        fn double_mock(params: i32) -> i32 {
+            params * 2
+        }
+        
+        let mut mock: FunctionMock<i32, i32> = FunctionMock::new("double");
+        mock.mock_implementation(double_mock);
+        
+        let result = mock.call(5);
+        assert_eq!(result, 10);
+        
+        mock.assert_times(1);
+        mock.assert_with(5);
+    }
+
+    #[test]
+    fn test_with_unit_return_type() {
+        fn void_mock(_params: i32) -> () {
+            // Do nothing
+        }
+        
+        let mut mock: FunctionMock<i32, ()> = FunctionMock::new("void_fn");
+        mock.mock_implementation(void_mock);
+        
+        mock.call(42);
+        mock.assert_times(1);
+        mock.assert_with(42);
+    }
+
+    #[test]
+    fn test_with_result_return_type() {
+        fn result_mock(params: (i32, i32)) -> Result<i32, String> {
+            if params.1 == 0 {
+                Err("Division by zero".to_string())
+            } else {
+                Ok(params.0 / params.1)
+            }
+        }
+        
+        let mut mock: FunctionMock<(i32, i32), Result<i32, String>> = FunctionMock::new("divide");
+        mock.mock_implementation(result_mock);
+        
+        let result1 = mock.call((10, 2));
+        assert_eq!(result1, Ok(5));
+        
+        let result2 = mock.call((10, 0));
+        assert_eq!(result2, Err("Division by zero".to_string()));
+        
+        mock.assert_times(2);
+    }
+
+    #[test]
+    fn test_multiple_calls_preserve_order() {
+        let mut mock: FunctionMock<i32, i32> = FunctionMock::new("identity");
+        mock.mock_implementation(|x| x);
+        
+        mock.call(1);
+        mock.call(2);
+        mock.call(3);
+        
+        assert_eq!(mock.calls, vec![1, 2, 3]);
+    }
+}
