@@ -12,7 +12,8 @@ use std::fmt::Debug;
 /// # Usage
 ///
 /// Normally you don't need to interact with the FunctionMock.
-/// The usage is automated in the `fnmock-derive::mock_function` macro.
+/// The usage is automated in the `fnmock-derive::mock_function` macro,
+/// and you interact with generated proxy functions.
 ///
 /// The function send_email is supposed to be mocked.
 ///
