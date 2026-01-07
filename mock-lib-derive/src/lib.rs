@@ -107,7 +107,7 @@ pub fn mock_function(_attr: TokenStream, item: TokenStream) -> TokenStream {
         pub(crate) mod #mock_fn_name {
             type Params = #params_type;
             type Return = #return_type;
-            const FUNCTION_NAME: &str = "#mock_fn_name";
+            const FUNCTION_NAME: &str = stringify!(#mock_fn_name);
 
             thread_local! {
                 static MOCK: std::cell::RefCell<mock_lib::function_mock::FunctionMock<
