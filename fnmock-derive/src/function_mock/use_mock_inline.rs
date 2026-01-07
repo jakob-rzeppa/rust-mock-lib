@@ -1,5 +1,3 @@
-//! Code generation utilities for the use_inline_mock procedural macro.
-
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Expr, ExprPath, Ident};
@@ -28,14 +26,14 @@ use syn::{Expr, ExprPath, Ident};
 ///     { original::path::function_mock }
 /// }
 /// ```
-pub(crate) fn process_inline_mock(input: &Expr) -> syn::Result<TokenStream2> {
+pub(crate) fn process_use_mock_inline(input: &Expr) -> syn::Result<TokenStream2> {
     // Extract the function path
     let fn_path = match input {
         Expr::Path(path) => path,
         _ => {
             return Err(syn::Error::new_spanned(
                 input,
-                "use_inline_mock expects a function identifier or path"
+                "use_mock_inline expects a function identifier or path"
             ));
         }
     };

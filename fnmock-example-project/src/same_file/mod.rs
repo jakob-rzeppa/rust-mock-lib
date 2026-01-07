@@ -1,4 +1,4 @@
-use fnmock::derive::{mock_function, use_inline_mock};
+use fnmock::derive::{mock_function, use_mock_inline};
 
 #[mock_function]
 fn sum(nums: Vec<f32>) -> f32 {
@@ -19,8 +19,8 @@ fn divide(numerator: f32, denominator: f32) -> Result<f32, String> {
 }
 
 fn find_average(data: Vec<f32>) -> Result<f32, String> {
-    use_inline_mock!(divide)(
-        use_inline_mock!(sum)(data.clone()),
+    use_mock_inline!(divide)(
+        use_mock_inline!(sum)(data.clone()),
         data.len() as f32
     )
 }
