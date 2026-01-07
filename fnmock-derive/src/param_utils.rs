@@ -1,8 +1,3 @@
-//! Utility functions for processing function parameters in mock generation.
-//!
-//! This module provides helper functions to transform function parameters into
-//! types and expressions suitable for the mock infrastructure.
-
 use quote::quote;
 use syn::{FnArg, Type, TypeReference};
 use syn::punctuated::Punctuated;

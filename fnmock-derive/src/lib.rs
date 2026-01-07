@@ -1,12 +1,15 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, FnArg, ItemFn, Type, ItemUse};
+use syn::{parse_macro_input};
 
 mod param_utils;
 mod use_tree_processor;
+mod function_mock;
+mod return_utils;
 
-use param_utils::{create_param_type, create_tuple_from_param_names, validate_static_params};
-use use_tree_processor::process_use_tree;
+use crate::function_mock::{process_mock_function};
+use crate::function_mock::use_function_mock::{process_use_function_mock};
+use crate::function_mock::use_inline_mock::process_inline_mock;
 
 /// Attribute macro that generates a mockable version of a function.
 ///
@@ -76,97 +79,12 @@ use use_tree_processor::process_use_tree;
 /// but not protected within a single test that uses multiple threads.
 #[proc_macro_attribute]
 pub fn mock_function(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemFn);
+    let input = parse_macro_input!(item as syn::ItemFn);
 
-    // Check if function is async and return an error if so
-    if input.sig.asyncness.is_some() {
-        return syn::Error::new_spanned(
-            &input.sig.asyncness,
-            "mock_function does not support async functions"
-        )
-        .to_compile_error()
-        .into();
+    match process_mock_function(input) {
+        Ok(expanded) => TokenStream::from(expanded),
+        Err(e) => e.to_compile_error().into(),
     }
-
-    // Validate that all parameters are 'static (no references)
-    if let Err(e) = validate_static_params(&input.sig.inputs) {
-        return e.to_compile_error().into();
-    }
-
-    // Extract function details
-    let fn_visibility = input.vis.clone();
-    let fn_name = input.sig.ident.clone();
-    let fn_inputs = input.sig.inputs.clone();
-    let fn_output = input.sig.output.clone();
-    let fn_block = input.block.clone();
-
-    // Generate mock function name
-    let mock_fn_name = syn::Ident::new(&format!("{}_mock", &fn_name), fn_name.span());
-
-    let params_type = create_param_type(&fn_inputs);
-    let params_to_tuple = create_tuple_from_param_names(&fn_inputs);
-    
-    // Extract return type from ReturnType
-    let return_type: Type = match &input.sig.output {
-        syn::ReturnType::Default => syn::parse2(quote! { () }).unwrap(),
-        syn::ReturnType::Type(_, ty) => (**ty).clone(),
-    };
-
-    // Generate both the original function and the mock module
-    let expanded = quote! {
-        #fn_visibility fn #fn_name(#fn_inputs) #fn_output #fn_block
-
-        #[cfg(test)]
-        pub(crate) fn #mock_fn_name(#fn_inputs) #fn_output {
-            #mock_fn_name::call(#params_to_tuple)
-        }
-
-        #[cfg(test)]
-        pub(crate) mod #mock_fn_name {
-            type Params = #params_type;
-            type Return = #return_type;
-            const FUNCTION_NAME: &str = stringify!(#mock_fn_name);
-
-            thread_local! {
-                static MOCK: std::cell::RefCell<fnmock::function_mock::FunctionMock<
-                    Params,
-                    Return,
-                >> = std::cell::RefCell::new(fnmock::function_mock::FunctionMock::new(FUNCTION_NAME));
-            }
-
-            pub(crate) fn call(params: Params) -> Return {
-                MOCK.with(|mock| {
-                    mock.borrow_mut().call(params)
-                })
-            }
-
-            pub(crate) fn mock_implementation(new_f: fn(Params) -> Return) {
-                MOCK.with(|mock| {
-                    mock.borrow_mut().mock_implementation(new_f)
-                })
-            }
-
-            pub(crate) fn clear_mock() {
-                MOCK.with(|mock|{
-                    mock.borrow_mut().clear_mock()
-                })
-            }
-
-            pub(crate) fn assert_times(expected_num_of_calls: u32) {
-                MOCK.with(|mock| {
-                    mock.borrow().assert_times(expected_num_of_calls)
-                })
-            }
-
-            pub(crate) fn assert_with(params: Params) {
-                MOCK.with(|mock| {
-                    mock.borrow().assert_with(params)
-                })
-            }
-        }
-    };
-
-    TokenStream::from(expanded)
 }
 
 /// Attribute macro that conditionally imports functions and their mock versions.
@@ -212,48 +130,11 @@ pub fn mock_function(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn use_function_mock(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemUse);
-    
-    // Extract the module path and function name mappings
-    let mut base_path = Vec::new();
-    let function_mappings = process_use_tree(&input.tree, &mut base_path);
-    
-    // Reconstruct the module path as tokens
-    let module_path = if base_path.is_empty() {
-        quote! {}
-    } else {
-        quote! { #(#base_path)::* }
-    };
-    
-    // Generate the appropriate expansion based on number of imports
-    if function_mappings.len() == 1 {
-        // Single import: use path::function;
-        let (fn_name, mock_fn_name) = &function_mappings[0];
-        let expanded = quote! {
-            #[cfg(not(test))]
-            #input
-            
-            #[cfg(test)]
-            use #module_path::#mock_fn_name as #fn_name;
-        };
-        TokenStream::from(expanded)
-    } else {
-        // Multiple imports: use path::{fn1, fn2};
-        let mock_alias_mappings: Vec<_> = function_mappings
-            .iter()
-            .map(|(fn_name, mock_fn_name)| {
-                quote! { #mock_fn_name as #fn_name }
-            })
-            .collect();
-        
-        let expanded = quote! {
-            #[cfg(not(test))]
-            #input
-            
-            #[cfg(test)]
-            use #module_path::{#(#mock_alias_mappings),*};
-        };
-        TokenStream::from(expanded)
+    let input = parse_macro_input!(item as syn::ItemUse);
+
+    match process_use_function_mock(input) {
+        Ok(expanded) => TokenStream::from(expanded),
+        Err(e) => e.to_compile_error().into(),
     }
 }
 
@@ -318,49 +199,8 @@ pub fn use_function_mock(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn use_inline_mock(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as syn::Expr);
 
-    // Extract the function path
-    let fn_path = match &input {
-        syn::Expr::Path(path) => path,
-        _ => {
-            return syn::Error::new_spanned(
-                input,
-                "use_inline_mock expects a function identifier or path"
-            )
-            .to_compile_error()
-            .into();
-        }
-    };
-
-    // Get the function name (last segment of the path)
-    let fn_name = match fn_path.path.segments.last() {
-        Some(segment) => &segment.ident,
-        None => {
-            return syn::Error::new_spanned(
-                &fn_path.path,
-                "Could not extract function name from path"
-            )
-            .to_compile_error()
-            .into();
-        }
-    };
-
-    // Create the mock function name
-    let mock_fn_name = syn::Ident::new(&format!("{}_mock", fn_name), fn_name.span());
-
-    // Clone the path for the mock version and replace the last segment
-    let mut mock_path = fn_path.clone();
-    if let Some(last_segment) = mock_path.path.segments.last_mut() {
-        last_segment.ident = mock_fn_name;
+    match process_inline_mock(&input) {
+        Ok(expanded) => TokenStream::from(expanded),
+        Err(e) => e.to_compile_error().into(),
     }
-
-    let expanded = quote! {
-        {
-            #[cfg(not(test))]
-            { #fn_path }
-            #[cfg(test)]
-            { #mock_path }
-        }
-    };
-
-    TokenStream::from(expanded)
 }
