@@ -1,11 +1,9 @@
 use quote::quote;
 use syn::__private::TokenStream2;
 use crate::function_stub::create_stub_implementation::{create_stub_function, create_stub_module};
-use crate::function_stub::validate_function::validate_function_stubbable;
 use crate::return_utils::extract_return_type;
 
 mod create_stub_implementation;
-mod validate_function;
 
 /// Processes a function and generates the complete stub infrastructure.
 ///
@@ -23,17 +21,10 @@ mod validate_function;
 ///
 /// - `Ok(TokenStream2)` - The complete generated code including original and stub infrastructure
 /// - `Err(syn::Error)` - If validation fails or the function cannot be stubbed
-///
-/// # Validation
-///
-/// The function validates that:
-/// - The function is not async
 pub(crate) fn process_stub_function(stub_function: syn::ItemFn) -> syn::Result<TokenStream2> {
-    // Validate function is suitable for stubbing
-    validate_function_stubbable(&stub_function)?;
-
     // Extract function details
     let fn_visibility = stub_function.vis.clone();
+    let fn_asyncness = stub_function.sig.asyncness;
     let fn_name = stub_function.sig.ident.clone();
     let fn_inputs = stub_function.sig.inputs.clone();
     let fn_output = stub_function.sig.output.clone();
@@ -46,6 +37,7 @@ pub(crate) fn process_stub_function(stub_function: syn::ItemFn) -> syn::Result<T
 
     let stub_function = create_stub_function(
         stub_fn_name.clone(),
+        fn_asyncness.clone(),
         fn_inputs.clone(),
         fn_output.clone(),
     );
@@ -56,7 +48,7 @@ pub(crate) fn process_stub_function(stub_function: syn::ItemFn) -> syn::Result<T
 
     // Generate the original function, stub function and the stub module
     Ok(quote! {
-        #fn_visibility fn #fn_name(#fn_inputs) #fn_output #fn_block
+        #fn_visibility #fn_asyncness fn #fn_name(#fn_inputs) #fn_output #fn_block
 
         #[cfg(test)]
         #stub_function

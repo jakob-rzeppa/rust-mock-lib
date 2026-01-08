@@ -12,11 +12,12 @@ use quote::quote;
 /// * `fn_output` - The return type
 pub(crate) fn create_stub_function(
     stub_fn_name: syn::Ident,
+    fn_asyncness: Option<syn::token::Async>,
     fn_inputs: syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>,
     fn_output: syn::ReturnType,
 ) -> proc_macro2::TokenStream {
     quote! {
-        pub(crate) fn #stub_fn_name(#fn_inputs) #fn_output {
+        pub(crate) #fn_asyncness fn #stub_fn_name(#fn_inputs) #fn_output {
             #stub_fn_name::get_return_value()
         }
     }
