@@ -255,14 +255,40 @@ The same pattern applies to `use_fake_inline!()` and `use_stub_inline!()`.
 
 ## Mocks vs Fakes vs Stubs
 
-| Feature              | Mocks                                 | Fakes                      | Stubs                 |
-|----------------------|---------------------------------------|----------------------------|-----------------------|
-| Call tracking        | ✅ Yes                                 | ❌ No                       | ❌ No                  |
-| Assertions           | ✅ Yes (`assert_times`, `assert_with`) | ❌ No                       | ❌ No                  |
-| Custom logic         | ✅ Yes (full function)                 | ✅ Yes (full function)      | ❌ No (value only)     |
-| Reference parameters | ❌ No (must use owned types)           | ✅ Yes                      | ✅ Yes                 |
-| Complexity           | Higher                                | Medium                     | Lower                 |
-| Use case             | Verifying behavior                    | Alternative implementation | Pre-configured values |
+| Feature              | Mocks                                  | Fakes                      | Stubs                 |
+| -------------------- | -------------------------------------- | -------------------------- | --------------------- |
+| Call tracking        | ✅ Yes                                 | ❌ No                      | ❌ No                 |
+| Assertions           | ✅ Yes (`assert_times`, `assert_with`) | ❌ No                      | ❌ No                 |
+| Custom logic         | ✅ Yes (full function)                 | ✅ Yes (full function)     | ❌ No (value only)    |
+| Reference parameters | ❌ No (must use owned types)           | ✅ Yes                     | ✅ Yes                |
+| Complexity           | Higher                                 | Medium                     | Lower                 |
+| Use case             | Verifying behavior                     | Alternative implementation | Pre-configured values |
+
+
+## Thread Safety
+
+Mocks, fakes, and stubs all use thread-local storage, which means:
+
+✅ **Test isolation**: Each test thread gets its own mock/fake state  
+✅ **Parallel tests**: Tests can run in parallel without interference  
+⚠️ **Not thread-safe within a test**: If a single test spawns multiple threads that mock the same function, undefined behavior may occur
+
+## Async Functions
+
+fnmock supports async functions! You can apply `#[mock_function]`, `#[fake_function]`, or `#[stub_function]` to async functions just like regular functions.
+
+### Important Constraints
+
+⚠️ **Mock/Fake implementations must be synchronous** - When you set up a mock or fake for an async function, the implementation function you provide must be a regular (non-async) function that returns the appropriate **non-future** type. You cannot use `.await` inside the mock/fake implementations.
+
+⚠️ **Single-threaded testing only** - When testing async functions with mocks/fakes/stubs, you **must** use single-threaded test executors. With tokio, use `#[tokio::test]` (which is single-threaded by default), **not** `#[tokio::test(flavor = "multi_thread")]`.
+
+### Why These Constraints?
+
+1. **Sync implementations**: The underlying storage mechanism requires that the mock/fake function itself be synchronous, since handling async implementations is much more error-prone and not needed for the majority of use cases.
+
+2. **Single-threaded tests**: Because mocks/fakes/stubs use thread-local storage, spawning multiple threads within a single test that access the same mock will lead to undefined behavior. Single-threaded async executors avoid this issue.
+
 
 ## Project Structure
 
@@ -302,14 +328,6 @@ fnmock/
 -   Functions must be standalone (no `self` parameters)
 -   Return type must implement `Clone` (for storing and retrieving the configured value)
 -   No parameters required (stubs don't track or use parameters)
-
-## Thread Safety
-
-Mocks, fakes, and stubs all use thread-local storage, which means:
-
-✅ **Test isolation**: Each test thread gets its own mock/fake state  
-✅ **Parallel tests**: Tests can run in parallel without interference  
-⚠️ **Not thread-safe within a test**: If a single test spawns multiple threads that mock the same function, undefined behavior may occur
 
 ## Contributing
 
