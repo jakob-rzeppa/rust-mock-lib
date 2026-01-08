@@ -28,7 +28,6 @@ mod validate_function;
 /// # Validation
 ///
 /// The function validates that:
-/// - The function is not async
 /// - All parameters are 'static (no references)
 /// - Parameters can be cloned, compared, and debugged
 pub(crate) fn process_mock_function(mock_function: syn::ItemFn) -> syn::Result<TokenStream2> {
@@ -37,6 +36,7 @@ pub(crate) fn process_mock_function(mock_function: syn::ItemFn) -> syn::Result<T
 
     // Extract function details
     let fn_visibility = mock_function.vis.clone();
+    let fn_asyncness = mock_function.sig.asyncness;
     let fn_name = mock_function.sig.ident.clone();
     let fn_inputs = mock_function.sig.inputs.clone();
     let fn_output = mock_function.sig.output.clone();
@@ -51,6 +51,7 @@ pub(crate) fn process_mock_function(mock_function: syn::ItemFn) -> syn::Result<T
 
     let mock_function = create_mock_function(
         mock_fn_name.clone(),
+        fn_asyncness.clone(),
         fn_inputs.clone(),
         fn_output.clone(),
         params_to_tuple
@@ -63,7 +64,7 @@ pub(crate) fn process_mock_function(mock_function: syn::ItemFn) -> syn::Result<T
 
     // Generate the original function, mock function and the mock module
     Ok(quote! {
-        #fn_visibility fn #fn_name(#fn_inputs) #fn_output #fn_block
+        #fn_visibility #fn_asyncness fn #fn_name(#fn_inputs) #fn_output #fn_block
 
         #[cfg(test)]
         #mock_function

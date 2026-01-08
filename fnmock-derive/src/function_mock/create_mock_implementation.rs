@@ -13,12 +13,13 @@ use quote::quote;
 /// * `params_to_tuple` - Token stream that converts parameters into a tuple for the mock
 pub(crate) fn create_mock_function(
     mock_fn_name: syn::Ident,
+    fn_asyncness: Option<syn::token::Async>,
     fn_inputs: syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>,
     fn_output: syn::ReturnType,
     params_to_tuple: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
     quote! {
-        pub(crate) fn #mock_fn_name(#fn_inputs) #fn_output {
+        pub(crate) #fn_asyncness fn #mock_fn_name(#fn_inputs) #fn_output {
             #mock_fn_name::call(#params_to_tuple)
         }
     }
