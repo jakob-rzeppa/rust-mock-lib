@@ -37,11 +37,10 @@ pub(crate) fn create_stub_module(stub_fn_name: syn::Ident, return_type: syn::Typ
     quote! {
         pub(crate) mod #stub_fn_name {
             use super::*;
-            use fnmock::function_stub::FunctionStub;
 
             thread_local! {
-                static STUB: std::cell::RefCell<FunctionStub<#return_type>> =
-                    std::cell::RefCell::new(FunctionStub::new(stringify!(#stub_fn_name)));
+                static STUB: std::cell::RefCell<fnmock::function_stub::FunctionStub<#return_type>> =
+                    std::cell::RefCell::new(fnmock::function_stub::FunctionStub::new(stringify!(#stub_fn_name)));
             }
 
             pub(crate) fn setup(return_value: #return_type) {

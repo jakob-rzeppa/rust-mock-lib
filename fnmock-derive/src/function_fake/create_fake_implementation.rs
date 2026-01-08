@@ -43,16 +43,13 @@ pub(crate) fn create_fake_module(fake_fn_name: syn::Ident, params_type: syn::Typ
     quote! {
         pub(crate) mod #fake_fn_name {
             use super::*;
-            use fnmock::function_fake::FunctionFake;
-
-            type Function = fn(#params_type) -> #return_type;
 
             thread_local! {
-                static FAKE: std::cell::RefCell<FunctionFake<Function>> =
-                    std::cell::RefCell::new(FunctionFake::new(stringify!(#fake_fn_name)));
+                static FAKE: std::cell::RefCell<fnmock::function_fake::FunctionFake<fn(#params_type) -> #return_type>> =
+                    std::cell::RefCell::new(fnmock::function_fake::FunctionFake::new(stringify!(#fake_fn_name)));
             }
 
-            pub(crate) fn setup(new_f: Function) {
+            pub(crate) fn setup(new_f: fn(#params_type) -> #return_type) {
                 FAKE.with(|fake| { fake.borrow_mut().setup(new_f) })
             }
 
@@ -60,7 +57,7 @@ pub(crate) fn create_fake_module(fake_fn_name: syn::Ident, params_type: syn::Typ
                 FAKE.with(|fake| { fake.borrow_mut().clear() })
             }
 
-            pub(crate) fn get_implementation() -> Function {
+            pub(crate) fn get_implementation() -> fn(#params_type) -> #return_type {
                 FAKE.with(|fake| { fake.borrow().get_implementation() })
             }
         }

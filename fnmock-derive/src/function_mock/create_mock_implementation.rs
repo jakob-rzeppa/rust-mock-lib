@@ -37,29 +37,29 @@ pub(crate) fn create_mock_function(
 /// * `mock_fn_name` - The name of the mock module (same as mock function name)
 /// * `params_type` - The type representing the function parameters (single type or tuple)
 /// * `return_type` - The return type of the function
-pub(crate) fn create_mock_module(mock_fn_name: syn::Ident, params_type: syn::Type, return_type: syn::Type) -> proc_macro2::TokenStream {
+pub(crate) fn create_mock_module(
+    mock_fn_name: syn::Ident,
+    params_type: syn::Type,
+    return_type: syn::Type,
+) -> proc_macro2::TokenStream {
     quote! {
         pub(crate) mod #mock_fn_name {
             use super::*;
 
-            type Params = #params_type;
-            type Return = #return_type;
-            const FUNCTION_NAME: &str = stringify!(#mock_fn_name);
-
             thread_local! {
                 static MOCK: std::cell::RefCell<fnmock::function_mock::FunctionMock<
-                    Params,
-                    Return,
-                >> = std::cell::RefCell::new(fnmock::function_mock::FunctionMock::new(FUNCTION_NAME));
+                    #params_type,
+                    #return_type,
+                >> = std::cell::RefCell::new(fnmock::function_mock::FunctionMock::new(stringify!(#mock_fn_name)));
             }
 
-            pub(crate) fn call(params: Params) -> Return {
+            pub(crate) fn call(params: #params_type) -> #return_type {
                 MOCK.with(|mock| {
                     mock.borrow_mut().call(params)
                 })
             }
 
-            pub(crate) fn setup(new_f: fn(Params) -> Return) {
+            pub(crate) fn setup(new_f: fn(#params_type) -> #return_type) {
                 MOCK.with(|mock| {
                     mock.borrow_mut().setup(new_f)
                 })
@@ -77,7 +77,7 @@ pub(crate) fn create_mock_module(mock_fn_name: syn::Ident, params_type: syn::Typ
                 })
             }
 
-            pub(crate) fn assert_with(params: Params) {
+            pub(crate) fn assert_with(params: #params_type) {
                 MOCK.with(|mock| {
                     mock.borrow().assert_with(params)
                 })
