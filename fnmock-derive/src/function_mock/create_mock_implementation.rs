@@ -41,6 +41,8 @@ pub(crate) fn create_mock_function(
 /// * `return_type` - The return type of the function
 /// * `fn_inputs` - The original function parameters (for documentation)
 /// * `ignore_indices` - Indices of parameters to ignore (for documentation)
+/// * `params_to_tuple` - Token stream that converts parameters into a tuple
+/// * `filtered_fn_inputs` - Function parameters excluding ignored ones
 pub(crate) fn create_mock_module(
     mock_fn_name: syn::Ident,
     params_type: syn::Type,
@@ -48,6 +50,8 @@ pub(crate) fn create_mock_module(
     fn_inputs: &syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>,
     ignore_indices: &[usize],
     fn_asyncness: Option<syn::token::Async>,
+    params_to_tuple: proc_macro2::TokenStream,
+    filtered_fn_inputs: syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>,
 ) -> proc_macro2::TokenStream {
     // Generate documentation using the proxy_docs module
     let docs = MockProxyDocs::new(&mock_fn_name, fn_inputs, ignore_indices, &return_type, fn_asyncness);
@@ -97,9 +101,9 @@ pub(crate) fn create_mock_module(
             }
 
             #assert_with_docs
-            pub(crate) fn assert_with(params: #params_type) {
+            pub(crate) fn assert_with(#filtered_fn_inputs) {
                 MOCK.with(|mock| {
-                    mock.borrow().assert_with(params)
+                    mock.borrow().assert_with(#params_to_tuple)
                 })
             }
         }

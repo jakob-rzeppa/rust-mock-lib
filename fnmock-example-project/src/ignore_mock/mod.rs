@@ -43,9 +43,9 @@ mod tests {
         // Assert was called 2 times
         save_user_mock::assert_times(2);
 
-        save_user_mock::assert_with((1, "Alice".to_string()));
+        save_user_mock::assert_with(1, "Alice".to_string());
 
-        save_user_mock::assert_with((1, "Alice".to_string()));
+        save_user_mock::assert_with(1, "Alice".to_string());
     }
 
     #[test]
@@ -59,7 +59,7 @@ mod tests {
         update_record_mock::assert_times(1);
 
         // Check that id and value match, ignoring the timestamp fields
-        update_record_mock::assert_with((42, "test".to_string()));
+        update_record_mock::assert_with(42, "test".to_string());
     }
 
     #[test]
@@ -70,7 +70,7 @@ mod tests {
         let _ = update_record_mock(42, "test".to_string(), &[1, 2, 3], 2000);
 
         // This should fail because id doesn't match (42 != 99)
-        update_record_mock::assert_with((99, "test".to_string()));
+        update_record_mock::assert_with(99, "test".to_string());
     }
 
     #[test]
@@ -96,6 +96,6 @@ mod tests {
         save_user_mock::assert_times(3);
 
         // All three calls should match when checking with any timestamp (ignored)
-        save_user_mock::assert_with((5, "Bob".to_string()));
+        save_user_mock::assert_with(5, "Bob".to_string());
     }
 }

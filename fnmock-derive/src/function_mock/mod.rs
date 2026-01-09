@@ -56,12 +56,14 @@ pub(crate) fn process_mock_function(mock_function: syn::ItemFn, ignore_params: V
 
     let return_type = extract_return_type(&mock_function.sig.output);
 
+    let filtered_fn_inputs = crate::param_utils::filter_params(&fn_inputs, &ignore_indices);
+
     let mock_function = create_mock_function(
         mock_fn_name.clone(),
         fn_asyncness.clone(),
         fn_inputs.clone(),
         fn_output.clone(),
-        params_to_tuple
+        params_to_tuple.clone()
     );
     let mock_module = create_mock_module(
         mock_fn_name,
@@ -69,7 +71,9 @@ pub(crate) fn process_mock_function(mock_function: syn::ItemFn, ignore_params: V
         return_type,
         &fn_inputs,
         &ignore_indices,
-        fn_asyncness.clone()
+        fn_asyncness.clone(),
+        params_to_tuple,
+        filtered_fn_inputs
     );
 
     // Generate the original function, mock function and the mock module

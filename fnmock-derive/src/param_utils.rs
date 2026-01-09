@@ -81,6 +81,32 @@ pub(crate) fn get_param_names(fn_inputs: &Punctuated<FnArg, Comma>) -> Vec<&syn:
         .collect()
 }
 
+/// Filters out ignored parameters from a function parameter list.
+///
+/// Returns a new Punctuated list containing only the non-ignored parameters.
+///
+/// # Arguments
+///
+/// * `fn_inputs` - The function parameters
+/// * `ignore_indices` - Indices of parameters to exclude
+///
+/// # Returns
+///
+/// A new Punctuated list with only non-ignored parameters.
+pub(crate) fn filter_params(fn_inputs: &Punctuated<FnArg, Comma>, ignore_indices: &[usize]) -> Punctuated<FnArg, Comma> {
+    fn_inputs
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, arg)| {
+            if ignore_indices.contains(&idx) {
+                None
+            } else {
+                Some(arg.clone())
+            }
+        })
+        .collect()
+}
+
 /// Creates a tuple expression from function parameter names.
 ///
 /// Converts parameter patterns into a tuple that can be passed to the mock

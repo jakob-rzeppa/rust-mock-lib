@@ -10,7 +10,6 @@ pub(crate) struct MockProxyDocs {
     param_docs: Vec<String>,
     ignored_param_docs: Vec<String>,
     setup_example: Vec<String>,
-    assert_with_example: String,
     is_async: bool,
 }
 
@@ -90,32 +89,11 @@ impl MockProxyDocs {
                 "});".to_string(),
             ]
         };
-        
-        let assert_with_example = if all_params.is_empty() {
-            format!("{}::assert_with(());", mock_fn_name)
-        } else {
-            let non_ignored: Vec<_> = all_params
-                .iter()
-                .filter(|(_, _, is_ignored)| !is_ignored)
-                .collect();
-            
-            if non_ignored.len() == 1 {
-                let (name, ty, _) = non_ignored[0];
-                format!("{}::assert_with({}); // Type: {}", mock_fn_name, quote::quote!(#name), quote::quote!(#ty))
-            } else {
-                let example_tuple: Vec<_> = non_ignored
-                    .iter()
-                    .map(|(name, _, _)| quote::quote!(#name))
-                    .collect();
-                format!("{}::assert_with(({}));", mock_fn_name, quote::quote!(#(#example_tuple),*))
-            }
-        };
 
         Self {
             param_docs,
             ignored_param_docs,
             setup_example,
-            assert_with_example,
             is_async: fn_asyncness.is_some(),
         }
     }
@@ -260,13 +238,12 @@ impl MockProxyDocs {
 
     /// Generates documentation attributes for the `assert_with` function.
     pub(crate) fn assert_with_docs(&self) -> proc_macro2::TokenStream {
-        let assert_with_example = &self.assert_with_example;
-        
         let mut docs = vec![
             quote! { #[doc = "Asserts that the mock was called at least once with the specified parameters."] },
             quote! { #[doc = ""] },
             quote! { #[doc = "Checks the call history to verify that at least one call was made with"] },
-            quote! { #[doc = "parameters matching the provided values."] },
+            quote! { #[doc = "parameters matching the provided values. Only non-ignored parameters need"] },
+            quote! { #[doc = "to be provided."] },
             quote! { #[doc = ""] },
             quote! { #[doc = "# Parameters"] },
             quote! { #[doc = ""] },
@@ -282,7 +259,9 @@ impl MockProxyDocs {
         
         if !self.ignored_param_docs.is_empty() {
             docs.push(quote! { #[doc = ""] });
-            docs.push(quote! { #[doc = "# Ignored Parameters"] });
+            docs.push(quote! { #[doc = "# Ignored Parameters (not required)"] });
+            docs.push(quote! { #[doc = ""] });
+            docs.push(quote! { #[doc = "The following parameters are ignored and do not need to be provided:"] });
             docs.push(quote! { #[doc = ""] });
             for param in &self.ignored_param_docs {
                 docs.push(quote! { #[doc = #param] });
@@ -295,11 +274,6 @@ impl MockProxyDocs {
             quote! { #[doc = ""] },
             quote! { #[doc = "Panics if no call with matching parameters is found in the call history"] },
             quote! { #[doc = ""] },
-            quote! { #[doc = "# Examples"] },
-            quote! { #[doc = ""] },
-            quote! { #[doc = "```ignore"] },
-            quote! { #[doc = #assert_with_example] },
-            quote! { #[doc = "```"] },
         ]);
         
         quote! { #(#docs)* }
