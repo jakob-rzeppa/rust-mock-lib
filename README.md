@@ -197,6 +197,46 @@ pub fn send_email(to: String, body: String) -> Result<(), String> {
     -   `call(params)` - Calls the mock implementation (params must be supplied as a tuple)
     -   `assert_times(n)` - Verify call count
     -   `assert_with(params)` - Verify parameters
+    -   `assert_with_ignore(params)` - Verify parameters, ignoring specified ones (only available if `ignore` is specified)
+
+#### Ignoring Parameters
+
+You can specify parameters to ignore during assertions using the `ignore` attribute:
+
+```rust
+#[mock_function(ignore = [timestamp])]
+pub fn save_user(id: u32, name: String, timestamp: i64) -> Result<(), String> {
+    // Real implementation
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_save_user() {
+        save_user_mock::setup(|_| Ok(()));
+
+        // Call with different timestamps
+        save_user_mock(1, "Alice".to_string(), 1000);
+        save_user_mock(1, "Alice".to_string(), 2000);
+
+        // Verify id and name match, but ignore timestamp
+        save_user_mock::assert_with_ignore((1, "Alice".to_string(), 0));
+    }
+}
+```
+
+The `ignore` feature is useful for:
+
+-   **Not allowed parameters**: All mock params need to be 'static and implement Clone / PartialEq. If that is not possible consider ignoring the parameter.
+-   **Timestamps**: When functions include time-based parameters that vary with each call
+-   **Non-deterministic values**: Any parameter with non-deterministic values
+
+You can ignore multiple parameters: `ignore = [param1, param2, param3]`
+
+---
 
 `#[fake_function]` generates:
 
@@ -205,6 +245,8 @@ pub fn send_email(to: String, body: String) -> Result<(), String> {
     -   `fake_implementation(fn)` - Set custom behavior
     -   `clear_fake()` - Reset to default
     -   `get_implementation()` - Returns the function pointer of the fake implementation
+
+---
 
 `#[stub_function]` generates:
 
