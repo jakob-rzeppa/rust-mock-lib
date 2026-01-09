@@ -8,6 +8,7 @@ use quote::quote;
 /// # Arguments
 ///
 /// * `mock_fn_name` - The name of the mock function (original name with `_mock` suffix)
+/// * `fn_asyncness` - Whether the function is async
 /// * `fn_inputs` - The function parameters
 /// * `fn_output` - The return type
 /// * `params_to_tuple` - Token stream that converts parameters into a tuple for the mock
