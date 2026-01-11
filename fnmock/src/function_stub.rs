@@ -92,6 +92,10 @@ where
         self.return_value = None;
     }
 
+    pub fn is_set(&self) -> bool {
+        self.return_value.is_some()
+    }
+
     pub fn get_return_value(&self) -> ReturnType {
         self.return_value.clone().expect(format!("{} stub not initialized", self.name).as_str())
     }

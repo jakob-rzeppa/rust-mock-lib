@@ -91,6 +91,10 @@ where
         self.implementation = None;
     }
 
+    pub fn is_set(&self) -> bool {
+        self.implementation.is_some()
+    }
+
     pub fn get_implementation(&self) -> Function
     {
         self.implementation.expect(format!("{} fake not initialized", self.name).as_str())

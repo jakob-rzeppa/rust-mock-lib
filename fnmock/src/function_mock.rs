@@ -102,6 +102,10 @@ where
         self.calls = Vec::new();
     }
 
+    pub fn is_set(&self) -> bool {
+        self.implementation.is_some()
+    }
+
     // --- Execute ---
 
     pub fn call(&mut self, params: Params) -> Result {
