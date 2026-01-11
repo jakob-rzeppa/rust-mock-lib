@@ -26,7 +26,7 @@ pub mod db {
 
 #[cfg(test)]
 mod tests {
-    use super::db::{save_user_mock, update_record_mock, delete_user_mock};
+    use super::db::{save_user, save_user_mock, update_record, update_record_mock, delete_user, delete_user_mock};
 
     #[test]
     fn test_save_user_with_ignored_timestamp() {
@@ -37,8 +37,8 @@ mod tests {
         });
 
         // Call with different timestamps
-        let _ = save_user_mock(1, "Alice".to_string(), 1000);
-        let _ = save_user_mock(1, "Alice".to_string(), 2000);
+        let _ = save_user(1, "Alice".to_string(), 1000);
+        let _ = save_user(1, "Alice".to_string(), 2000);
 
         // Assert was called 2 times
         save_user_mock::assert_times(2);
@@ -54,7 +54,7 @@ mod tests {
         update_record_mock::setup(|_| Ok(()));
 
         // Call with different timestamps
-        let _ = update_record_mock(42, "test".to_string(), &[1, 2, 3], 2000);
+        let _ = update_record(42, "test".to_string(), &[1, 2, 3], 2000);
 
         update_record_mock::assert_times(1);
 
@@ -67,7 +67,7 @@ mod tests {
     fn test_assert_with_ignore_fails_on_non_ignored_params() {
         update_record_mock::setup(|_| Ok(()));
         
-        let _ = update_record_mock(42, "test".to_string(), &[1, 2, 3], 2000);
+        let _ = update_record(42, "test".to_string(), &[1, 2, 3], 2000);
 
         // This should fail because id doesn't match (42 != 99)
         update_record_mock::assert_with(99, "test".to_string());
@@ -78,7 +78,7 @@ mod tests {
         // Mocks without ignore parameter work normally
         delete_user_mock::setup(|_| Ok(()));
 
-        let _ = delete_user_mock(123);
+        let _ = delete_user(123);
 
         delete_user_mock::assert_times(1);
         delete_user_mock::assert_with(123);
@@ -89,9 +89,9 @@ mod tests {
         save_user_mock::setup(|_| Ok(()));
 
         // Make multiple calls with same id and name, but different timestamps
-        let _ = save_user_mock(5, "Bob".to_string(), 100);
-        let _ = save_user_mock(5, "Bob".to_string(), 200);
-        let _ = save_user_mock(5, "Bob".to_string(), 300);
+        let _ = save_user(5, "Bob".to_string(), 100);
+        let _ = save_user(5, "Bob".to_string(), 200);
+        let _ = save_user(5, "Bob".to_string(), 300);
 
         save_user_mock::assert_times(3);
 

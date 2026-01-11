@@ -6,11 +6,20 @@ pub mod db {
         // Real implementation
         Ok(format!("user_{}", id))
     }
+
+    #[cfg(test)]
+    mod mock {
+        use super::*;
+
+        #[tokio::test]
+        async fn it_works() {
+            let res = fetch_user(2).await.unwrap();
+
+            assert_eq!(res, "user_2");
+        }
+    }
 }
 
-use fnmock::derive::use_fake;
-
-#[use_fake]
 use db::fetch_user;
 
 pub async fn handle_user(id: u32) -> Result<String, String> {

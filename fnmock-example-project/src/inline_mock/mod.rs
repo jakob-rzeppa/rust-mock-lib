@@ -1,4 +1,4 @@
-use fnmock::derive::{mock_function, use_mock_inline};
+use fnmock::derive::{mock_function};
 
 #[mock_function]
 pub fn fetch_user(id: u32) -> Result<String, String> {
@@ -9,7 +9,7 @@ pub fn fetch_user(id: u32) -> Result<String, String> {
 pub fn handle_user(id: u32) {
     // Since fetch_user is in the same module as handle_user, we don't need to import it.
     // That's why we can't use #[use_mock] and have to use the mock inline
-    let _user = use_mock_inline!(fetch_user)(id);
+    let _user = fetch_user(id);
 
     // Do something with the user
 }

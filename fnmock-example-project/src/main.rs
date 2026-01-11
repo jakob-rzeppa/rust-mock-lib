@@ -22,9 +22,7 @@ fn main() {
     inline_mock::handle_user(1);
     
     let _ = basic_stub::config::get_config();
-    let _ = basic_stub::config::get_port();
     let _ = basic_stub::process_config();
-    let _ = basic_stub::process_port();
     
     // Async functions
     let _ = tokio::runtime::Runtime::new().unwrap().block_on(async {

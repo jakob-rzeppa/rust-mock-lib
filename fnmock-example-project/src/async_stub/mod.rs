@@ -6,11 +6,19 @@ pub mod config {
         // Real implementation
         format!("production_config: {}", id)
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[tokio::test]
+        async fn test_stub() {
+            let res = get_config(2).await;
+
+            assert_eq!(res, "production_config: 2");
+        }
+    }
 }
-
-use fnmock::derive::use_stub;
-
-#[use_stub]
 use config::get_config;
 
 pub async fn process_config(id: u32) -> String {

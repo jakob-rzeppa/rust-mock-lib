@@ -6,11 +6,22 @@ pub mod db {
         // Real implementation
         Ok(format!("user_{}", id))
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn it_works() {
+            let result = fetch_user(4);
+
+            assert!(result.is_ok());
+            let result = result.unwrap();
+            assert_eq!(result, "user_4".to_string());
+        }
+    }
 }
 
-use fnmock::derive::use_mock;
-
-#[use_mock]
 use db::fetch_user;
 
 pub fn handle_user(id: u32) {

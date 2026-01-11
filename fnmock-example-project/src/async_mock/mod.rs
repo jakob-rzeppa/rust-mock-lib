@@ -8,9 +8,6 @@ pub mod db {
     }
 }
 
-use fnmock::derive::use_mock;
-
-#[use_mock]
 use db::fetch_user;
 
 pub async fn handle_user(id: u32) {
