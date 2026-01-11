@@ -10,9 +10,10 @@ mod proxy_docs;
 ///
 /// This is the main entry point for the stub_function attribute macro. It takes a function
 /// definition and generates:
-/// 1. The original function unchanged
-/// 2. A stub function with `_stub` suffix (test-only)
-/// 3. A stub module with control methods (test-only)
+/// 1. The original function with stub checking logic injected (in test mode, checks if a stub
+///    is configured and calls it; otherwise executes the original implementation)
+/// 2. A stub module with control methods (test-only) containing `setup()`, `clear()`,
+///    `is_set()`, and `get_return_value()` functions
 ///
 /// # Arguments
 ///
@@ -31,27 +32,28 @@ pub(crate) fn process_stub_function(stub_function: syn::ItemFn) -> syn::Result<T
     let fn_output = stub_function.sig.output.clone();
     let fn_block = stub_function.block.clone();
 
-    // Generate stub function name
-    let stub_fn_name = syn::Ident::new(&format!("{}_stub", &fn_name), fn_name.span());
+    // Generate stub module name
+    let stub_mod_name = syn::Ident::new(&format!("{}_stub", &fn_name), fn_name.span());
 
     let return_type = extract_return_type(&stub_function.sig.output);
 
     let stub_function = create_stub_function(
-        stub_fn_name.clone(),
-        fn_asyncness.clone(),
-        fn_inputs.clone(),
-        fn_output.clone(),
+        fn_name,
+        fn_visibility,
+        fn_asyncness,
+        fn_inputs,
+        fn_output,
+        fn_block,
+        stub_mod_name.clone(),
     );
+
     let stub_module = create_stub_module(
-        stub_fn_name,
+        stub_mod_name,
         return_type
     );
 
-    // Generate the original function, stub function and the stub module
+    // Generate the original function and the stub module
     Ok(quote! {
-        #fn_visibility #fn_asyncness fn #fn_name(#fn_inputs) #fn_output #fn_block
-
-        #[cfg(test)]
         #stub_function
 
         #[cfg(test)]

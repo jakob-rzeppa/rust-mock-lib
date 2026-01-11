@@ -437,14 +437,16 @@ pub fn use_fake_inline(item: TokenStream) -> TokenStream {
 
 /// Attribute macro that generates a stubbable version of a function.
 ///
-/// This macro preserves the original function and generates:
-/// 1. A `<function_name>_stub` function that can be called in tests
+/// This macro modifies the original function to check (in test mode) if a stub implementation
+/// has been configured and generates:
+/// 1. The original function with injected stub checking logic (calls stub if set, otherwise executes normally)
 /// 2. A `<function_name>_stub` module containing stub control methods
 ///
 /// # Generated Stub Module Methods
 ///
 /// - `setup(return_value)` - Sets the predetermined return value for the stub
 /// - `clear()` - Resets the stub to its uninitialized state
+/// - `is_set()` - Checks if the stub has been configured
 /// - `get_return_value()` - Gets the current stubbed return value
 ///
 /// # Difference from Mocks and Fakes
@@ -481,21 +483,20 @@ pub fn use_fake_inline(item: TokenStream) -> TokenStream {
 ///         // Set up stub return value
 ///         get_config_stub::setup("test_config".to_string());
 ///
-///         // Call the stub
-///         let result = get_config_stub();
+///         // Call the original function (which will use the stub in tests)
+///         let result = get_config();
 ///
 ///         // Verify result
 ///         assert_eq!(result, "test_config");
 ///
-///         // Clean up
+///         // Clean up (not necessary since stubs are thread-local and reset between tests)
 ///         get_config_stub::clear();
 ///     }
 /// }
 /// ```
-///
 /// # Note
 ///
-/// The stub function and module use thread-local storage, so stubs are isolated
+/// The stub module uses thread-local storage, so stubs are isolated
 /// between tests but **not thread-safe** if the same function is stubbed in parallel
 /// test threads.
 #[proc_macro_attribute]

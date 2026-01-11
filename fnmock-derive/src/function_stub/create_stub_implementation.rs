@@ -1,26 +1,46 @@
 use quote::quote;
 use crate::function_stub::proxy_docs::StubProxyDocs;
 
-/// Generates a stub function that delegates to the stub module's get_return_value method.
+/// Generates the original function with stub checking logic injected.
 ///
-/// Creates a function with the same signature as the original function,
-/// but with `_stub` suffix, that returns the stubbed value.
+/// Creates a function that first checks (in test mode) if a stub implementation has been
+/// configured via the stub module. If a stub is set, it calls the stub implementation.
+/// Otherwise, it executes the original function body.
 ///
 /// # Arguments
 ///
-/// * `stub_fn_name` - The name of the stub function (original name with `_stub` suffix)
+/// * `fn_name` - The name of the original function
+/// * `fn_visibility` - The visibility modifier of the function (pub, pub(crate), etc.)
+/// * `fn_asyncness` - Optional async keyword if the function is async
 /// * `fn_inputs` - The function parameters
 /// * `fn_output` - The return type
+/// * `fn_block` - The original function body to execute when stub is not set
+/// * `stub_mod_name` - The name of the stub module containing the stub infrastructure
+///
+/// # Returns
+///
+/// Generated token stream for the function with injected stub checking logic
 pub(crate) fn create_stub_function(
-    stub_fn_name: syn::Ident,
+    fn_name: syn::Ident,
+    fn_visibility: syn::Visibility,
     fn_asyncness: Option<syn::token::Async>,
     fn_inputs: syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>,
     fn_output: syn::ReturnType,
+    fn_block: Box<syn::Block>,
+    stub_mod_name: syn::Ident,
 ) -> proc_macro2::TokenStream {
+    let original_fn_stmts = &fn_block.stmts;
+    
     quote! {
         #[allow(unused_variables)]
-        pub(crate) #fn_asyncness fn #stub_fn_name(#fn_inputs) #fn_output {
-            #stub_fn_name::get_return_value()
+        #fn_visibility #fn_asyncness fn #fn_name(#fn_inputs) #fn_output {
+            // Call the stub implementation if set (only in test mode)
+            #[cfg(test)]
+            if #stub_mod_name::is_set() {
+                return #stub_mod_name::get_return_value();
+            }
+
+            #(#original_fn_stmts)*
         }
     }
 }
@@ -40,6 +60,7 @@ pub(crate) fn create_stub_module(stub_fn_name: syn::Ident, return_type: syn::Typ
     let docs = StubProxyDocs::new(&stub_fn_name, &return_type);
     let setup_docs = docs.setup_docs();
     let clear_docs = docs.clear_docs();
+    let is_set_docs = docs.is_set_docs();
     let get_return_value_docs = docs.get_return_value_docs();
     
     quote! {
@@ -59,6 +80,11 @@ pub(crate) fn create_stub_module(stub_fn_name: syn::Ident, return_type: syn::Typ
             #clear_docs
             pub(crate) fn clear() {
                 STUB.with(|stub| { stub.borrow_mut().clear() })
+            }
+
+            #is_set_docs
+            pub(crate) fn is_set() -> bool {
+                STUB.with(|stub| { stub.borrow().is_set() })
             }
 
             #get_return_value_docs
